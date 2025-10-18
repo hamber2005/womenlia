@@ -1,48 +1,223 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>我们俩</title>
-  <style>
-    :root {
-      --shadow: rgba(0,0,0,0.28);
-      --overlay: rgba(0,0,0,0.35);
-    }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0; padding: 20px; min-height: 100vh;
-      display: flex; align-items: center; justify-content: center; text-align: center;
-      color: #fff;
-      font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>滚动歌词 Demo（内嵌 LRC）</title>
+<style>
+  :root{
+    --overlay: rgba(0,0,0,.35);
+    --active: #fff;
+    --text: rgba(255,255,255,.8);
+    --muted: rgba(255,255,255,.45);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; color:#fff; font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background-image:
+      linear-gradient(135deg,var(--overlay),var(--overlay)),
+      url("https://raw.githubusercontent.com/hamber2005/womenlia/main/womenlia.png?v=1");
+    background-size:auto,cover; background-position:center; background-repeat:no-repeat; background-color:#000;
+    display:grid; grid-template-rows:auto 1fr; gap:12px; padding:24px 16px;
+  }
+  .player{
+    max-width:680px; margin:0 auto; width:100%;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    background: rgba(255,255,255,.12); border-radius:16px; padding:14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  audio{width:100%}
 
-      /* 两层背景：遮罩 + 图片 */
-      background-image:
-        linear-gradient(135deg, var(--overlay), var(--overlay)),
-        url("https://raw.githubusercontent.com/hamber2005/womenlia/main/womenlia.png?v=1");
-      /* 渐变层不缩放；图片层用 contain 确保整图可见 */
-      background-size: auto, contain;
-      background-position: center;
-      background-repeat: no-repeat;
-      background-color: #000; /* 留白区域用纯色填充 */
-    }
-
-    audio { width: min(92vw, 560px); margin: 18px 0 8px; border-radius: 8px; outline: none; }
-    .download { display:inline-block; margin-top:8px; font-size:14px; opacity:.9; color:#fff; }
-    .download:hover { text-decoration: underline; }
-  </style>
+  .lyric-wrap{
+    max-width:680px; margin:0 auto; width:100%;
+    height:min(60vh,520px); /* 歌词可视高度 */
+    overflow:auto; scroll-behavior:smooth;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    background: rgba(255,255,255,.08); border-radius:16px; padding:22px 16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  ul.lyric{list-style:none; padding:0; margin:0; }
+  ul.lyric li{
+    padding:10px 4px; line-height:1.6;
+    color:var(--text); text-align:center; white-space:pre-wrap;
+    transition: transform .25s ease, color .25s ease, opacity .25s ease;
+    opacity:.7;
+  }
+  ul.lyric li.active{
+    color:var(--active); opacity:1;
+    transform: scale(1.06);
+  }
+  ul.lyric li.past{ color:var(--muted); opacity:.6; transform:none }
+  .meta{ max-width:680px; margin:0 auto 4px; text-align:center; opacity:.9 }
+</style>
 </head>
 <body>
 
-  <audio controls preload="none">
-    <source src="https://raw.githubusercontent.com/hamber2005/womenlia/main/我们俩.mp3" type="audio/mpeg">
-    你的浏览器不支持音频播放。
-  </audio>
-
-  <div>
-    <a class="download" href="https://raw.githubusercontent.com/hamber2005/womenlia/main/我们俩.mp3" download>下载歌曲</a>
+  <div class="player">
+    <audio id="audio" controls preload="metadata">
+      <source src="https://raw.githubusercontent.com/hamber2005/womenlia/main/我们俩.mp3" type="audio/mpeg">
+      你的浏览器不支持音频播放。
+    </audio>
   </div>
 
+  <div class="meta" id="meta"></div>
+
+  <div class="lyric-wrap" id="scrollBox">
+    <ul class="lyric" id="lyric"></ul>
+  </div>
+
+<script>
+/* ===== 1) 在这里写 LRC（可从网易/QQ 导出），支持多时间戳、偏移 ===== */
+const LRC_TEXT = `
+[ti:我们俩] 
+[offset:0]
+[00:04.00]你在左边 我紧靠右
+[00:08.00]第一张照片 不太敢亲密的
+[00:12.00]属于我们俩的 脸庞太天真了
+[00:16.00]苹果一样带甜的羞涩
+[00:21.00]太多感触 已不同了
+[00:25.00]世界变了 还是我改变了
+[00:28.00]夹在书本这相册
+[00:31.00]滑落的照片让我变沉默
+[00:36:00]太久 太久 是否过了太久
+[00:40:00]忘了 忘了 开始怎开始的
+[00:44:00]喝醉了小河边唱着歌
+[00:48:00]永远爱你是我说过
+[00:51:00]没有 没有 再没谁能拥有
+[00:55:00]像你 像我 哭和笑都懂得
+[01:00:00]再触摸
+[01:02:00]我心底藏了好久
+[01:04:50]那最柔软的角落
+[01:24:00]你在左边 我紧靠右
+[01:28:00]第一张照片 不太敢亲密的
+[01:33:00]属于我们俩的 脸庞太天真了
+[01:37:00]苹果一样带甜的羞涩
+[01:41:00]太多感触 已不同了
+[01:45:00]世界变了 还是我改变了
+[01:48:00]夹在书本这相册
+[01:52:00]滑落的照片让我变沉默
+[01:56:00]太久 太久 是否过了太久
+[02:00:00]忘了 忘了 开始怎开始的
+[02:04:00]喝醉了小河边唱着歌
+[02:08:00]永远爱你是我说过
+[02:12:00]没有 没有 再没谁能拥有
+[02:16:00]像你 像我 哭和笑都懂得
+[02:20:00]再触摸
+[02:23:00]我心底藏了好久
+[02:25:00]那最柔软的角落
+[02:27:00]太久 太久 是否过了太久
+[02:31:00]忘了 忘了 开始怎么开始的
+[02:35:00]喝醉了小河边唱着歌
+[02:39:00]永远爱你是我说过
+[02:43:00]没有 没有 再没谁能拥有
+[02:47:00]像你 像我 哭和笑都懂得
+[02:51:00]再触摸
+[02:54:00]我心底藏了好久
+[02:57:00]那最柔软的角落
+`;
+
+/* ===== 2) 解析 LRC ===== */
+function parseLRC(lrc){
+  const meta = {ti:'',ar:'',al:'',offset:0};
+  const lines = [];
+  const rgxTime = /\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?]/g;
+
+  lrc.split(/\r?\n/).forEach(raw=>{
+    const line = raw.trim();
+    if(!line) return;
+
+    // 元信息
+    const mMeta = line.match(/^\[(ti|ar|al|by|offset):\s*(.*?)\s*]$/i);
+    if(mMeta){
+      const k = mMeta[1].toLowerCase();
+      if(k === 'offset') meta.offset = parseInt(mMeta[2]||0,10) || 0;
+      else meta[k] = mMeta[2];
+      return;
+    }
+
+    // 可能含多个时间标签
+    let text = line.replace(rgxTime,'').trim();
+    if(!text) text = '♪';
+
+    let m;
+    while((m = rgxTime.exec(line)) !== null){
+      const min = parseInt(m[1],10);
+      const sec = parseInt(m[2],10);
+      const cs  = parseInt((m[3]||'0').padEnd(3,'0'),10); // 毫秒
+      const t = min*60 + sec + cs/1000;
+      lines.push({ t, text });
+    }
+    rgxTime.lastIndex = 0; // 重置
+  });
+
+  // 排序并应用 offset（ms）
+  if(meta.offset) {
+    const off = meta.offset/1000;
+    lines.forEach(o => o.t += off);
+  }
+  lines.sort((a,b)=>a.t-b.t);
+  return {meta,lines};
+}
+
+/* ===== 3) 渲染到页面 ===== */
+const {meta, lines} = parseLRC(LRC_TEXT);
+document.getElementById('meta').textContent =
+  [meta.ti, meta.ar && `- ${meta.ar}`, meta.al && `（${meta.al}）`].filter(Boolean).join(' ');
+const ul = document.getElementById('lyric');
+ul.innerHTML = lines.map((l,i)=>`<li data-i="${i}" data-t="${l.t}">${l.text}</li>`).join('');
+const lis = [...ul.querySelectorAll('li')];
+
+const audio = document.getElementById('audio');
+const scrollBox = document.getElementById('scrollBox');
+let activeIndex = -1;
+
+/* 点击某行跳转播放 */
+ul.addEventListener('click', e=>{
+  const li = e.target.closest('li');
+  if(!li) return;
+  const t = parseFloat(li.dataset.t||'0');
+  if(!isNaN(t)) audio.currentTime = Math.max(0, t - 0.2);
+  audio.play();
+});
+
+/* ===== 4) 同步滚动 ===== */
+function setActive(i){
+  if(i === activeIndex || i < 0 || i >= lis.length) return;
+  if(activeIndex>=0) lis[activeIndex].classList.remove('active');
+  lis.forEach((el,idx)=>{
+    el.classList.toggle('past', idx < i);
+  });
+  lis[i].classList.add('active');
+  activeIndex = i;
+
+  const el = lis[i];
+  const box = scrollBox;
+  const target = el.offsetTop - (box.clientHeight/2 - el.clientHeight/2);
+  box.scrollTo({top: target, behavior:'smooth'});
+}
+
+function findIndexByTime(t){
+  // 在已排序的 lines 中找“最后一个 <= t”的索引
+  let lo=0, hi=lines.length-1, ans=-1;
+  while(lo<=hi){
+    const mid=(lo+hi)>>1;
+    if(lines[mid].t <= t){ ans=mid; lo=mid+1; }
+    else hi=mid-1;
+  }
+  return ans;
+}
+
+audio.addEventListener('timeupdate', ()=>{
+  const i = findIndexByTime(audio.currentTime);
+  setActive(i);
+});
+
+/* 支持从头开始时把滚动重置 */
+audio.addEventListener('seeking', ()=>{
+  const i = findIndexByTime(audio.currentTime);
+  setActive(i);
+});
+</script>
 </body>
 </html>
