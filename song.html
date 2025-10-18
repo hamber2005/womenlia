@@ -121,7 +121,7 @@ const LRC_TEXT = `
 function parseLRC(lrc){
   const meta = {ti:'',ar:'',al:'',offset:0};
   const lines = [];
-  const rgxTime = /\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?]/g;
+  const rgxTime = /\[(\d{1,2}):(\d{1,2})(?:[.:](\d{1,3}))?]/g;
 
   lrc.split(/\r?\n/).forEach(raw=>{
     const line = raw.trim();
